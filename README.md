@@ -50,7 +50,7 @@ This is going to take your all your `config/locales/*sk.yml` files and compare t
 it's going to create it and translate all string keys in the source file to English using Google Translate.
 If the target file already exists it's gonna compare all the string keys in both source and target and translate only those missing in the target.
 
-Translates all .yml files in subfolders (recursivelly find folders, for example `config/locales/views/my_page.sk.yml`)
+Translates all .yml files in subfolders (recursivelly find folders, for example `config/locales/views/my_page.sk.yml` `config/locales/activerecord/shared.sk.yml`)
 
 	$ for f in $(find config/locales/ -type d);do echo $f; yml_gt sk en $f; done
 	

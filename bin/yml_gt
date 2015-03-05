@@ -4,10 +4,13 @@ require 'yml_gtranslate'
 
 if ARGV.size != 3 and ARGV.size != 2
     puts "Usage: #{$0} <from_lang> <to_lang> [directory_or_file]"
-    puts "       goes thru all *from_lang.yml files in the direcotry, or use specifix file"
-    puts "       the default dir is config/locales"
-    puts "       eg: #{$0} en de . -> translates all *en.yml to *de.yml files in the current directory"
-    puts "       you can use ** for recursively find folders http://ruby-doc.org/core-1.9.3/Dir.html#method-c-glob"
+    puts "       if you provide directory than it goes thru all *from_lang.yml files in that directory"
+    puts "       if you provide filename, it will translate only that file"
+    puts "       the default is directory: config/locales"
+    puts "       Examples:"
+    puts "       #{$0} en de config/locales/en.yml # translates that file to config/locales/de.yml"
+    puts "       #{$0} en de . # translates all *en.yml to *de.yml files in the current directory"
+    puts "       #{$0} en de '**' # translates all *en.yml to *de.yml files in all subfolders"
     exit -1
 end
 

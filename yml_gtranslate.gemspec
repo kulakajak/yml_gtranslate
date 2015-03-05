@@ -6,8 +6,8 @@ require 'yml_gtranslate/version'
 Gem::Specification.new do |gem|
   gem.name          = "yml_gtranslate"
   gem.version       = YmlGtranslate::VERSION
-  gem.authors       = ["Stefan Mikula"]
-  gem.email         = ["stef.mikula@gmail.com"]
+  gem.authors       = ["Kajakas","Stefan Mikula"]
+  gem.email         = ["kulakajak@gmail.com","stef.mikula@gmail.com"]
   gem.description   = %q{Uses Google Translate service to translate your *.yml files in your Rails projects. Handy to get your localizations started fast.}
   gem.summary       = %q{Translates your *.yml locale files using Google Translate (no GT API).}
   gem.homepage      = ""

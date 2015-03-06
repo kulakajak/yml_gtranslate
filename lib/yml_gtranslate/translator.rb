@@ -4,7 +4,8 @@ require 'ya2yaml'
 require 'yaml'
 
 # irb -I/path_to_your/yml_gtranslate/lib
-# load 'yml_gtranslate.rb') && YmlGtranslate::Translator.new("pt","en",'/path_to_your/config/locales/devise.pt.yml').translate_locales
+# require 'byebug'
+# (load 'yml_gtranslate.rb') && YmlGtranslate::Translator.new("pt","en",'/path_to_your/config/locales/devise.pt.yml').translate_locales
 # gem build yml_gtranslate.gemspec && gem install yml_gtranslate-0.0.5.gem
 
 module YmlGtranslate
@@ -18,7 +19,6 @@ module YmlGtranslate
     COMMENT_TOKEN = "" # "#i18n-GT"
     
     def translate(string)
-      string = string.dup # we need this since some strings could be chared between keys since yml use <<: reference
       if string == '' || string == nil
         return ''
       end
@@ -26,6 +26,7 @@ module YmlGtranslate
         puts "ruby symbol #{string}"
         return string
       end
+      string = string.dup # we need this since some strings could be chared between keys since yml use <<: reference
       original_string = string.dup
       temp_matches = {}
       # replace #{something} or %{blabla} %H with random string
@@ -70,24 +71,28 @@ module YmlGtranslate
      hash1.inject({}) do |h, pair|
        key, value = pair
        if hash2.key?(key)
-         # output has that key so we will use that
+         # output has that key so we will use that it is the same type
          if value.is_a? Hash
            if hash2[key].is_a? Hash
              # recursive call translate when output is also a Hash)
              h[key] = compare(value, hash2[key], target_key+"#{key}.")
            else
-             puts "#{target_key}#{key} existing translation (#{hash2[key]}) should be an object. Ignoring it..."
+             puts "!!!! #{target_key}#{key} existing translation (#{hash2[key]}) should be an object. Ignoring it... !!!!!"
              h[key] = compare(value, {}, target_key+"#{key}.")
            end
-         elsif value.is_a?(String)
-           # recursive call translate (output should also be a Hash)
-           if hash2[key].is_a? String
-             #puts "#{target_key}#{key} existing value: #{value} -> #{hash2[key]}"
+         elsif value.is_a?(Array)
+           if hash2[key].is_a?(Array) && value.length == hash2[key].length
+             # it is the same type and length
              h[key] = hash2[key]
            else
-             puts "#{target_key}#{key} existing translation (#{hash2[key]}) should be an string. Ignoring it..."
-             h[key] = comment(translate(value))
+             # differs in lenght or type, ignoring
+             puts "!!!! #{target_key}#{key} existing translation (#{hash2[key]}) is not array with same size. Ignoring it... !!!!!"
+             h[key] = value.map { |i| comment(translate(i))} 
            end
+         else
+           # its is simple type so use that
+           #puts "#{target_key}#{key} use existing value: #{value} -> #{hash2[key]}"
+           h[key] = hash2[key]
          end
        else
          # output does not have that key
@@ -99,7 +104,9 @@ module YmlGtranslate
            h[key] =  comment(translate(value))
          elsif value.is_a?(TrueClass) ||
            value.is_a?(Fixnum) ||
-           value.is_a?(Float)
+           value.is_a?(Float) ||
+           value.is_a?(FalseClass) ||
+           value.is_a?(NilClass)
            # here is true, false, number
            puts "#{target_key}#{key} is simple type: #{value} -> #{value}"
            h[key] =  value  
@@ -107,7 +114,8 @@ module YmlGtranslate
            puts "#{target_key}#{key} is array:"
            h[key] = value.map { |i| translate(i)} 
          else
-           puts "!!! Unknown class"
+           puts "================== !!! Unknown class #{value} #{value.class} !!!"
+           h[key] = value
            break
          end
        end
@@ -128,12 +136,17 @@ module YmlGtranslate
     end
 
     files.each do |f|
+      printf "\nprocessing #{f} "
       prefix = f.split("#{@from_lang}.yml").first.to_s
       to_file =  "#{prefix}#{@to_lang}.yml"
-      from_hash = YAML.load_file(f)[@from_lang.to_s]
+      begin
+        from_hash = YAML.load_file(f)[@from_lang.to_s]
+      rescue Exception => e
+        puts "=============== !!! Error in processing YML !!!"
+        puts "Skipping malformed yml file in #{f} #{e}"
+        next
+      end
     
-      printf "\nprocessing #{f} "
-
       to_hash = {}
       if File.exists?(to_file)
         puts "and use existing #{@to_lang}.yml file"
@@ -144,7 +157,7 @@ module YmlGtranslate
         puts "creating new file #{to_file}"
       end
 
-      result = compare(from_hash, to_hash, "#{to_file.rpartition('/').last}:")
+      result = compare(from_hash, to_hash, "#{f.rpartition('/').last}:")
 
       File.open("#{to_file}", 'w') do |out|
         out.write({@to_lang.to_s => result}.to_yaml)

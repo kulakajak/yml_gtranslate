@@ -29,6 +29,11 @@ module YmlGtranslate
       string = string.dup # we need this since some strings could be chared between keys since yml use <<: reference
       original_string = string.dup
       temp_matches = {}
+      # replace html tags <label> with random string, before replacing #{} since they could be inside html tags
+      string.scan(/<.*?>/).each do |m|
+        temp_matches[m] = Random.rand.to_s[2..-1]
+        string.sub!(m,temp_matches[m])
+      end
       # replace #{something} or %{blabla} %H with random string
       # [%#] start with % or #
       # non capturing group and or statement (?: | )
@@ -36,12 +41,7 @@ module YmlGtranslate
       # \w+ match word
       string.scan(/[%#](?:\{.*?\}|\w+)/).each do |m|
         temp_matches[m] = Random.rand.to_s[2..-1]
-        string.gsub!(m,temp_matches[m])
-      end
-      # replace html tags <label> with random string
-      string.scan(/<.*?>/).each do |m|
-        temp_matches[m] = Random.rand.to_s[2..-1]
-        string.gsub!(m,temp_matches[m])
+        string.sub!(m,temp_matches[m])
       end
       command = <<-EOF
       curl -s -A "Mozilla/5.0 (X11; Linux x86_64; rv:5.0) Gecko/20100101 Firefox/5.0" "http://translate.google.com/translate_a/t?client=t&text=#{URI.escape(string)}&hl=#{@from_lang}&sl=auto&tl=#{@to_lang}&multires=1&prev=conf&psl=auto&ptl=#{@from_lang}&otf=1&it=sel.7123%2Ctgtd.3099&ssel=0&tsel=4&uptl=#{@to_lang}&sc=1"

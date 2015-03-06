@@ -3,6 +3,9 @@ require 'uri'
 require 'ya2yaml'
 require 'yaml'
 
+# irb -I/path_to_your/yml_gtranslate/lib
+# load 'yml_gtranslate.rb') && YmlGtranslate::Translator.new("pt","en",'/path_to_your/config/locales/devise.pt.yml').translate_locales
+# gem build yml_gtranslate.gemspec && gem install yml_gtranslate-0.0.5.gem
 
 module YmlGtranslate
   class Translator
@@ -12,7 +15,7 @@ module YmlGtranslate
       @directory_or_file = dir || "**"
     end
     
-    COMMENT_TOKEN = "#i18n-GT"
+    COMMENT_TOKEN = "" # "#i18n-GT"
     
     def translate(string)
       string = string.dup # we need this since some strings could be chared between keys since yml use <<: reference
@@ -62,45 +65,50 @@ module YmlGtranslate
     end
 
 
-    def compare(hash1, hash2)
+    def compare(hash1, hash2, target_key)
       # iterate over input hash
      hash1.inject({}) do |h, pair|
        key, value = pair
        if hash2.key?(key)
-         # output has that key 
+         # output has that key so we will use that
          if value.is_a? Hash
+           if hash2[key].is_a? Hash
+             # recursive call translate when output is also a Hash)
+             h[key] = compare(value, hash2[key], target_key+"#{key}.")
+           else
+             puts "#{target_key}#{key} existing translation (#{hash2[key]}) should be an object. Ignoring it..."
+             h[key] = compare(value, {}, target_key+"#{key}.")
+           end
+         elsif value.is_a?(String)
            # recursive call translate (output should also be a Hash)
-           printf "#{key}."
-           h[key] = compare(value, hash2[key])
-         else
-           puts "#{key}: existing #{value} -> #{hash2[key]}"
-           # use that string (output should also be a String)
-           h[key] = hash2[key]
+           if hash2[key].is_a? String
+             #puts "#{target_key}#{key} existing value: #{value} -> #{hash2[key]}"
+             h[key] = hash2[key]
+           else
+             puts "#{target_key}#{key} existing translation (#{hash2[key]}) should be an string. Ignoring it..."
+             h[key] = comment(translate(value))
+           end
          end
        else
          # output does not have that key
          if value.is_a?(Hash) 
-           # recursive call for new output
-           printf "#{key}."
-           h[key] = compare(value, {})
+           h[key] = compare(value, {}, target_key+"#{key}.")
+         elsif value.is_a?(String)
+           # translate recursive calls stops here
+           printf "#{target_key}#{key}: "
+           h[key] =  comment(translate(value))
+         elsif value.is_a?(TrueClass) ||
+           value.is_a?(Fixnum) ||
+           value.is_a?(Float)
+           # here is true, false, number
+           puts "#{target_key}#{key} is simple type: #{value} -> #{value}"
+           h[key] =  value  
+         elsif value.is_a?(Array)
+           puts "#{target_key}#{key} is array:"
+           h[key] = value.map { |i| translate(i)} 
          else
-           if value.is_a?(String)
-             # translate
-             printf "#{key}: "
-             h[key] =  comment(translate(value))
-           elsif value.is_a?(TrueClass) ||
-             value.is_a?(Fixnum) ||
-             value.is_a?(Float)
-             # here is true, false, number
-             puts "#{key} is simple type: #{value} -> #{value}"
-             h[key] =  value  
-           elsif value.is_a?(Array)
-             puts "#{key} is array:"
-             h[key] = value.map { |i| translate(i)} 
-           else
-             puts "!!! Unknown class"
-             break
-           end
+           puts "!!! Unknown class"
+           break
          end
        end
        h
@@ -130,21 +138,21 @@ module YmlGtranslate
       if File.exists?(to_file)
         puts "and use existing #{@to_lang}.yml file"
         incomment = "sed s/\\\"\\ #i18n-GT/#i18n-GT\\\"/g #{to_file} > tmp.yml; rm #{to_file}; mv tmp.yml #{to_file}"
-        `#{incomment}`
+        #`#{incomment}`
         to_hash = YAML.load_file(to_file)[@to_lang.to_s] || {}
       else
         puts "creating new file #{to_file}"
       end
 
-      result = compare(from_hash, to_hash)
+      result = compare(from_hash, to_hash, "#{to_file.rpartition('/').last}:")
 
       File.open("#{to_file}", 'w') do |out|
-        out.write({@to_lang.to_s => result}.ya2yaml)
+        out.write({@to_lang.to_s => result}.to_yaml)
       end
 
       comment = "sed s/#i18n-GT\\\"/\\\"\\ #i18n-GT/g #{to_file} > tmp.yml; rm #{to_file}; mv tmp.yml #{to_file}"
     
-      `#{comment}`
+      #`#{comment}`
     end
   end
 
